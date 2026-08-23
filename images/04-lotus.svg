@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1770">
+  <defs>
+    <radialGradient id="lotusGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#3a415f" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#3a415f" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="900" height="1770" fill="#000000"/>
+  <circle cx="450" cy="950" r="430" fill="url(#lotusGlow)"/>
+  <g transform="translate(450 950)">
+    <g fill="#e8b7c8" opacity="0.92">
+      <path d="M0,0 C-55,-170 -30,-330 0,-390 C30,-330 55,-170 0,0" transform="rotate(0)"/>
+      <path d="M0,0 C-55,-170 -30,-330 0,-390 C30,-330 55,-170 0,0" transform="rotate(60)"/>
+      <path d="M0,0 C-55,-170 -30,-330 0,-390 C30,-330 55,-170 0,0" transform="rotate(120)"/>
+      <path d="M0,0 C-55,-170 -30,-330 0,-390 C30,-330 55,-170 0,0" transform="rotate(180)"/>
+      <path d="M0,0 C-55,-170 -30,-330 0,-390 C30,-330 55,-170 0,0" transform="rotate(240)"/>
+      <path d="M0,0 C-55,-170 -30,-330 0,-390 C30,-330 55,-170 0,0" transform="rotate(300)"/>
+    </g>
+    <g fill="#f2ccd9">
+      <path d="M0,0 C-45,-130 -24,-250 0,-300 C24,-250 45,-130 0,0" transform="rotate(30)"/>
+      <path d="M0,0 C-45,-130 -24,-250 0,-300 C24,-250 45,-130 0,0" transform="rotate(90)"/>
+      <path d="M0,0 C-45,-130 -24,-250 0,-300 C24,-250 45,-130 0,0" transform="rotate(150)"/>
+      <path d="M0,0 C-45,-130 -24,-250 0,-300 C24,-250 45,-130 0,0" transform="rotate(210)"/>
+      <path d="M0,0 C-45,-130 -24,-250 0,-300 C24,-250 45,-130 0,0" transform="rotate(270)"/>
+      <path d="M0,0 C-45,-130 -24,-250 0,-300 C24,-250 45,-130 0,0" transform="rotate(330)"/>
+    </g>
+    <g fill="#fbeef2">
+      <path d="M0,0 C-32,-95 -17,-180 0,-215 C17,-180 32,-95 0,0" transform="rotate(18)"/>
+      <path d="M0,0 C-32,-95 -17,-180 0,-215 C17,-180 32,-95 0,0" transform="rotate(90)"/>
+      <path d="M0,0 C-32,-95 -17,-180 0,-215 C17,-180 32,-95 0,0" transform="rotate(162)"/>
+      <path d="M0,0 C-32,-95 -17,-180 0,-215 C17,-180 32,-95 0,0" transform="rotate(234)"/>
+      <path d="M0,0 C-32,-95 -17,-180 0,-215 C17,-180 32,-95 0,0" transform="rotate(306)"/>
+    </g>
+    <circle r="36" fill="#ffd27d"/>
+    <g fill="#fff3c9">
+      <circle cx="0" cy="-58" r="5"/>
+      <circle cx="50" cy="-29" r="5"/>
+      <circle cx="50" cy="29" r="5"/>
+      <circle cx="0" cy="58" r="5"/>
+      <circle cx="-50" cy="29" r="5"/>
+      <circle cx="-50" cy="-29" r="5"/>
+    </g>
+  </g>
+  <path d="M450,960 C430,1150 380,1300 330,1470" stroke="#4e5d3f" stroke-width="20" fill="none" stroke-linecap="round"/>
+  <ellipse cx="270" cy="1400" rx="230" ry="125" fill="#3c5340"/>
+  <g stroke="#243626" stroke-width="8" stroke-linecap="round">
+    <path d="M270,1400 L90,1330"/>
+    <path d="M270,1400 L140,1285"/>
+    <path d="M270,1400 L270,1260"/>
+    <path d="M270,1400 L400,1285"/>
+    <path d="M270,1400 L460,1330"/>
+    <path d="M270,1400 L90,1470"/>
+    <path d="M270,1400 L460,1470"/>
+    <path d="M270,1400 L270,1535"/>
+  </g>
+  <g stroke="#202941" stroke-width="6" fill="none" stroke-linecap="round">
+    <path d="M100,1600 Q450,1630 800,1600"/>
+    <path d="M150,1650 Q450,1680 750,1650"/>
+    <path d="M220,1690 Q450,1710 680,1690"/>
+  </g>
+  <g fill="#ffd27d" opacity="0.9">
+    <circle cx="620" cy="1150" r="5"/>
+    <circle cx="700" cy="1350" r="5"/>
+    <circle cx="640" cy="1520" r="5"/>
+    <circle cx="760" cy="1240" r="5"/>
+  </g>
+</svg>

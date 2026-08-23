@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>剪影画廊 · Silhouette Gallery</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="bg-overlay" id="bg-overlay" aria-hidden="true"></div>
+
+  <button class="settings-fab" id="settings-btn" type="button" aria-label="自定义页面" title="自定义页面">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3"></circle>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+    </svg>
+  </button>
+
+  <div class="settings-panel" id="settings-panel" hidden>
+    <div class="panel-head">
+      <span class="panel-title">自定义页面</span>
+      <button class="panel-close" id="settings-close" type="button" aria-label="关闭">×</button>
+    </div>
+
+    <div class="field">
+      <label for="set-title">主标题</label>
+      <input id="set-title" type="text" maxlength="40" placeholder="剪影画廊" />
+    </div>
+
+    <div class="field">
+      <label for="set-sub">副标题</label>
+      <input id="set-sub" type="text" maxlength="80" placeholder="Silhouette Gallery" />
+    </div>
+
+    <div class="field">
+      <span class="field-label">背景颜色</span>
+      <div class="swatches" id="bg-swatches">
+        <button type="button" class="swatch" data-color="#f0f0f0" style="--sw:#f0f0f0" aria-label="米白"></button>
+        <button type="button" class="swatch" data-color="#111111" style="--sw:#111111" aria-label="墨黑"></button>
+        <button type="button" class="swatch" data-color="#d9d9d9" style="--sw:#d9d9d9" aria-label="雾灰"></button>
+        <button type="button" class="swatch" data-color="#1d2a3a" style="--sw:#1d2a3a" aria-label="夜色蓝"></button>
+        <button type="button" class="swatch" data-color="#efe8da" style="--sw:#efe8da" aria-label="暖米"></button>
+        <label class="swatch swatch-custom" title="自定义颜色">
+          <input id="set-bg-color" type="color" value="#f0f0f0" aria-label="自定义背景颜色" />
+          <span>＋</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="field-label">背景图片</span>
+      <div class="row">
+        <label class="file-btn" for="set-bg-image">选择图片</label>
+        <input id="set-bg-image" type="file" accept="image/*" hidden />
+        <button class="ghost-btn" id="clear-bg-image" type="button">移除图片</button>
+      </div>
+      <p class="field-hint" id="bg-image-hint">背景图会自动缩放并保存在本机浏览器中</p>
+    </div>
+
+    <div class="panel-actions">
+      <button class="ghost-btn" id="reset-settings" type="button">恢复默认</button>
+      <button class="primary-btn" id="settings-done" type="button">完成</button>
+    </div>
+  </div>
+
+  <main class="gallery">
+    <header class="gallery-head">
+      <h1 id="gallery-title">剪影画廊</h1>
+      <p class="sub" id="gallery-sub">Silhouette Gallery</p>
+      <p class="hint">上传照片，自动生成白色剪影 · 悬停方框可查看原图</p>
+    </header>
+
+    <div class="grid" id="grid">
+      <figure class="card">
+        <div class="frame" tabindex="0" aria-label="山峦，悬停查看原图">
+          <img class="photo" src="images/01-mountains.svg" alt="月光下的山峦" draggable="false" />
+          <div class="silhouette" style="--mask: url('images/01-mountains.svg')" aria-hidden="true"></div>
+        </div>
+      </figure>
+
+      <figure class="card">
+        <div class="frame" tabindex="0" aria-label="城市天际线，悬停查看原图">
+          <img class="photo" src="images/02-skyline.svg" alt="夜晚的城市天际线" draggable="false" />
+          <div class="silhouette" style="--mask: url('images/02-skyline.svg')" aria-hidden="true"></div>
+        </div>
+      </figure>
+
+      <figure class="card">
+        <div class="frame" tabindex="0" aria-label="仙鹤，悬停查看原图">
+          <img class="photo" src="images/03-crane.svg" alt="月下仙鹤" draggable="false" />
+          <div class="silhouette" style="--mask: url('images/03-crane.svg')" aria-hidden="true"></div>
+        </div>
+      </figure>
+
+      <figure class="card">
+        <div class="frame" tabindex="0" aria-label="荷花，悬停查看原图">
+          <img class="photo" src="images/04-lotus.svg" alt="月夜荷花" draggable="false" />
+          <div class="silhouette" style="--mask: url('images/04-lotus.svg')" aria-hidden="true"></div>
+        </div>
+      </figure>
+
+      <figure class="card upload-card" id="upload-card">
+        <div class="frame upload-frame" id="upload-frame" tabindex="0" role="button" aria-label="上传图片生成白色剪影">
+          <div class="upload-inner" id="upload-inner">
+            <div class="upload-icon" aria-hidden="true">＋</div>
+            <p class="upload-main">上传图片</p>
+            <p class="upload-sub">点击或拖拽照片到这里</p>
+            <p class="upload-note" id="upload-note">支持 JPG / PNG · 首次使用需下载模型（约 42 MB）并初始化，请稍候</p>
+            <div class="progress" id="upload-progress" hidden>
+              <div class="progress-bar" id="upload-progress-bar"></div>
+            </div>
+            <p class="upload-status" id="upload-status" hidden></p>
+          </div>
+          <input type="file" id="file-input" accept="image/*" multiple hidden />
+        </div>
+      </figure>
+    </div>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="script.js"></script>
+</body>
+</html>

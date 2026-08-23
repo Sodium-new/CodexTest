@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1770">
+  <defs>
+    <radialGradient id="moonGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fff2c8" stop-opacity="0.32"/>
+      <stop offset="100%" stop-color="#fff2c8" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="900" height="1770" fill="#000000"/>
+  <circle cx="620" cy="320" r="240" fill="url(#moonGlow)"/>
+  <circle cx="620" cy="320" r="92" fill="#fff2cf"/>
+  <g fill="#ffffff">
+    <circle cx="180" cy="240" r="3"/>
+    <circle cx="300" cy="150" r="2"/>
+    <circle cx="430" cy="270" r="2.5"/>
+    <circle cx="760" cy="180" r="3"/>
+    <circle cx="840" cy="330" r="2"/>
+    <circle cx="120" cy="420" r="2"/>
+    <circle cx="520" cy="120" r="2"/>
+  </g>
+  <polygon points="0,1160 150,890 300,1090 480,770 640,1030 900,830 900,1770 0,1770" fill="#262c3d"/>
+  <polygon points="0,1290 220,1020 420,1230 640,970 900,1170 900,1770 0,1770" fill="#3a4258"/>
+  <polygon points="0,1450 260,1160 520,1390 760,1130 900,1250 900,1770 0,1770" fill="#56617c"/>
+  <polygon points="215,1250 260,1160 305,1250 278,1266 260,1246 240,1266" fill="#eef2fb"/>
+  <polygon points="700,1240 760,1130 812,1240 780,1260 760,1240 736,1260" fill="#eef2fb"/>
+  <rect x="0" y="1510" width="900" height="260" fill="#0c0f1d"/>
+</svg>

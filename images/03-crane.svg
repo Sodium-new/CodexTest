@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1770">
+  <defs>
+    <radialGradient id="moonGlow3" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fff1c4" stop-opacity="0.32"/>
+      <stop offset="100%" stop-color="#fff1c4" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="900" height="1770" fill="#000000"/>
+  <circle cx="650" cy="330" r="230" fill="url(#moonGlow3)"/>
+  <circle cx="650" cy="330" r="105" fill="#fff1c4"/>
+  <path d="M-20,1360 C140,1300 300,1310 460,1370" stroke="#1b1509" stroke-width="20" fill="none" stroke-linecap="round"/>
+  <g stroke="#1b1509" stroke-width="10" stroke-linecap="round">
+    <path d="M300,1328 L260,1210"/>
+    <path d="M380,1340 L420,1230"/>
+    <path d="M160,1320 L120,1220"/>
+  </g>
+  <path d="M260,1180 C150,1150 110,1100 70,1050 C120,1100 190,1120 250,1130 Z" fill="#f4f6fb"/>
+  <path d="M250,1210 C140,1200 90,1160 50,1120 C100,1165 170,1180 240,1190 Z" fill="#f4f6fb"/>
+  <path d="M255,1240 C150,1250 100,1220 70,1190 C120,1230 180,1240 245,1240 Z" fill="#f4f6fb"/>
+  <ellipse cx="410" cy="1215" rx="185" ry="115" fill="#f4f6fb"/>
+  <path d="M525,1130 C620,1030 680,900 700,780" stroke="#f4f6fb" stroke-width="48" fill="none" stroke-linecap="round"/>
+  <circle cx="706" cy="742" r="46" fill="#f4f6fb"/>
+  <polygon points="745,725 830,712 742,760" fill="#ff9d3d"/>
+  <circle cx="688" cy="698" r="11" fill="#e0413f"/>
+  <g stroke="#3d4354" stroke-width="16" stroke-linecap="round">
+    <path d="M360,1300 C360,1400 350,1470 330,1530"/>
+    <path d="M440,1300 C440,1400 430,1470 420,1540"/>
+    <path d="M330,1530 L285,1565"/>
+    <path d="M420,1540 L470,1570"/>
+  </g>
+</svg>
