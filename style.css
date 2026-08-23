@@ -52,13 +52,13 @@ body.has-bg-image .bg-overlay {
 .gallery {
   position: relative;
   z-index: 1;
-  width: min(1340px, 94vw);
-  padding: clamp(32px, 6vh, 72px) 0;
+  width: min(1700px, 97vw);
+  padding: clamp(24px, 4.5vh, 56px) 0;
 }
 
 .gallery-head {
   text-align: center;
-  margin-bottom: clamp(28px, 5vh, 56px);
+  margin-bottom: clamp(20px, 4vh, 44px);
 }
 
 .gallery-head h1 {
@@ -88,7 +88,7 @@ body.has-bg-image .bg-overlay {
 .grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: clamp(18px, 3vw, 44px);
+  gap: clamp(12px, 1.6vw, 24px);
 }
 
 .card {
@@ -165,87 +165,73 @@ body.has-bg-image .bg-overlay {
   outline-offset: 4px;
 }
 
-/* ---------- 上传卡片 ---------- */
-.upload-frame {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.92);
-  background: color-mix(in srgb, var(--panel-bg) 92%, transparent);
-  border: 3px dashed color-mix(in srgb, var(--ink) 40%, transparent);
-  box-shadow: none;
-  cursor: pointer;
-  transition: border-color 0.25s ease, background-color 0.25s ease;
-}
-
-.upload-frame:hover,
-.upload-frame:focus-visible,
-.upload-frame.dragging {
-  border-color: var(--ink);
-  background: rgba(255, 255, 255, 0.78);
-  background: color-mix(in srgb, var(--panel-bg) 78%, transparent);
-}
-
-.upload-frame:focus-visible {
-  outline: 3px solid var(--ink);
-  outline-offset: 4px;
-}
-
-.upload-inner {
+/* ---------- 画框内容设置 ---------- */
+.frame-settings {
   display: flex;
   flex-direction: column;
+  gap: 8px;
+}
+
+.frame-edit {
+  display: flex;
   align-items: center;
-  text-align: center;
-  padding: 18px;
-  gap: 6px;
-  max-width: 100%;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.5);
 }
 
-.upload-icon {
-  display: grid;
-  place-items: center;
-  width: 52px;
-  height: 52px;
-  margin-bottom: 6px;
-  border-radius: 50%;
-  background: var(--ink);
-  color: #fff;
-  font-size: 26px;
-  font-weight: 300;
-  line-height: 1;
+.frame-thumb {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #000;
 }
 
-.upload-main {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
+.frame-edit-info {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
 }
 
-.upload-sub {
-  margin: 0;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.upload-note {
-  margin: 10px 0 0;
-  font-size: 11px;
-  line-height: 1.6;
-  color: #9a9a9a;
-}
-
-.upload-status {
-  margin: 8px 0 0;
+.frame-edit-name {
   font-size: 12px;
-  color: var(--muted);
-  overflow-wrap: anywhere;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.frame-edit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.frame-edit-actions .file-btn,
+.frame-edit-actions .ghost-btn {
+  padding: 5px 10px;
+  font-size: 11px;
+}
+
+.frame-edit-actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.frame-progress {
+  margin: 10px 0 4px;
 }
 
 .progress {
   width: min(150px, 90%);
   height: 4px;
-  margin: 8px auto 0;
+  margin: 8px 0 0;
   border-radius: 999px;
   background: var(--line);
   overflow: hidden;
@@ -257,83 +243,6 @@ body.has-bg-image .bg-overlay {
   border-radius: 999px;
   background: var(--ink);
   transition: width 0.2s ease;
-}
-
-.upload-frame.busy {
-  cursor: wait;
-}
-
-.spinner {
-  width: 22px;
-  height: 22px;
-  margin: 6px auto 0;
-  border: 2px solid var(--line);
-  border-top-color: var(--ink);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* ---------- 生成结果卡片 ---------- */
-.card-name {
-  margin: 12px 2px 0;
-  font-size: 12px;
-  color: var(--muted);
-  letter-spacing: 0.08em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.frame-actions {
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: 10px;
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  opacity: 0;
-  transform: translateY(8px);
-  transition: opacity 0.25s ease, transform 0.25s ease;
-  pointer-events: none;
-}
-
-.frame:hover .frame-actions,
-.frame:focus-within .frame-actions {
-  opacity: 1;
-  transform: none;
-  pointer-events: auto;
-}
-
-.act-btn {
-  appearance: none;
-  border: 0;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-family: inherit;
-  letter-spacing: 0.06em;
-  background: rgba(255, 255, 255, 0.92);
-  color: #111;
-  text-decoration: none;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  transition: background-color 0.2s ease, color 0.2s ease;
-}
-
-.act-btn:hover {
-  background: #fff;
-}
-
-.act-btn.danger:hover {
-  background: #d64545;
-  color: #fff;
 }
 
 /* ---------- 自定义面板 ---------- */

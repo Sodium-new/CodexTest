@@ -57,6 +57,19 @@
       <p class="field-hint" id="bg-image-hint">背景图会自动缩放并保存在本机浏览器中</p>
     </div>
 
+    <div class="field">
+      <span class="field-label">画框内容</span>
+      <div class="frame-settings" id="frame-settings"></div>
+      <div class="frame-progress" id="frame-progress" hidden>
+        <div class="progress">
+          <div class="progress-bar" id="frame-progress-bar"></div>
+        </div>
+        <p class="field-hint" id="frame-status"></p>
+      </div>
+      <input type="file" id="frame-file" accept="image/*" hidden />
+      <p class="field-hint">每幅画框都可更换照片并自动生成白色剪影，设置保存在本机浏览器中；也可随时恢复默认</p>
+    </div>
+
     <div class="panel-actions">
       <button class="ghost-btn" id="reset-settings" type="button">恢复默认</button>
       <button class="primary-btn" id="settings-done" type="button">完成</button>
@@ -67,7 +80,7 @@
     <header class="gallery-head">
       <h1 id="gallery-title">剪影画廊</h1>
       <p class="sub" id="gallery-sub">Silhouette Gallery</p>
-      <p class="hint">上传照片，自动生成白色剪影 · 悬停方框可查看原图</p>
+      <p class="hint">悬停方框可查看原图 · 点击右上角齿轮可更换画框内容</p>
     </header>
 
     <div class="grid" id="grid">
@@ -96,22 +109,6 @@
         <div class="frame" tabindex="0" aria-label="荷花，悬停查看原图">
           <img class="photo" src="images/04-lotus.svg" alt="月夜荷花" draggable="false" />
           <div class="silhouette" style="--mask: url('images/04-lotus.svg')" aria-hidden="true"></div>
-        </div>
-      </figure>
-
-      <figure class="card upload-card" id="upload-card">
-        <div class="frame upload-frame" id="upload-frame" tabindex="0" role="button" aria-label="上传图片生成白色剪影">
-          <div class="upload-inner" id="upload-inner">
-            <div class="upload-icon" aria-hidden="true">＋</div>
-            <p class="upload-main">上传图片</p>
-            <p class="upload-sub">点击或拖拽照片到这里</p>
-            <p class="upload-note" id="upload-note">支持 JPG / PNG · 首次使用需下载模型（约 42 MB）并初始化，请稍候</p>
-            <div class="progress" id="upload-progress" hidden>
-              <div class="progress-bar" id="upload-progress-bar"></div>
-            </div>
-            <p class="upload-status" id="upload-status" hidden></p>
-          </div>
-          <input type="file" id="file-input" accept="image/*" multiple hidden />
         </div>
       </figure>
     </div>

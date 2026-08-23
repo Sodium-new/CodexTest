@@ -5,9 +5,10 @@
  *   node tools/browser-test.mjs [页面URL]
  *
  * 验证内容：
- *   1. 上传合成测试图 → 等待 AI 剪影卡片出现
- *   2. 校验剪影 PNG 的像素：主体区域不透明且为纯白
- *   3. 自定义标题/背景色 → 刷新后设置仍保留
+ *   1. 页面固定为 4 个画框，且没有上传卡片（不能新增画框）
+ *   2. 通过设置面板更换画框照片 → 等待 AI 剪影 → 校验剪影 PNG 像素
+ *   3. 自定义标题/背景色/画框内容 → 刷新后仍保留
+ *   4. 恢复默认画框内容
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -98,17 +99,31 @@ console.log('open page:', URL);
 await page.goto(URL, { waitUntil: 'load', timeout: 60000 });
 assert((await page.textContent('#gallery-title')) === '剪影画廊', '页面默认标题正确');
 
-// ---- 1. 上传并生成剪影 ----
-if (QUICK) {
-  console.log('quick mode: 跳过模型推理，只验证设置面板');
-} else {
-  console.log('upload image, waiting for model download + inference...');
-  await page.setInputFiles('#file-input', inputFile);
+// ---- 1. 固定四幅画框，无上传卡片 ----
+const frameCount = await page.evaluate(() => document.querySelectorAll('.grid .card').length);
+assert(frameCount === 4, '页面固定为 4 个画框');
+assert((await page.$('#upload-card')) === null, '不存在上传卡片（不能新增画框）');
+
+// ---- 2. 设置面板：画框内容区域 ----
+await page.click('#settings-btn');
+await page.waitForSelector('#frame-settings .frame-edit');
+const editCount = await page.evaluate(() => document.querySelectorAll('#frame-settings .frame-edit').length);
+assert(editCount === 4, '设置面板包含 4 个画框编辑项');
+assert(
+  (await page.textContent('#frame-settings .frame-edit:first-child .frame-edit-name')).includes('山峦'),
+  '画框 1 默认内容正确'
+);
+
+if (!QUICK) {
+  // ---- 2a. 更换画框 1 的照片 ----
+  console.log('replace frame 1 image, waiting for model download + inference...');
+  await page.click('#frame-settings .frame-edit:first-child .file-btn');
+  await page.setInputFiles('#frame-file', inputFile);
+
   const poll = setInterval(async () => {
-    const status = await page.$eval('#upload-status', (el) => el.textContent).catch(() => '');
-    const width = await page.$eval('#upload-progress-bar', (el) => el.style.width).catch(() => '');
+    const status = await page.$eval('#frame-status', (el) => el.textContent).catch(() => '');
+    const width = await page.$eval('#frame-progress-bar', (el) => el.style.width).catch(() => '');
     const toastText = await page.$eval('#toast', (el) => (el.hidden ? '' : el.textContent)).catch(() => '');
-    const ortLoaded = await page.evaluate(() => typeof window.ort).catch(() => '?');
     console.log(
       '[progress]',
       new Date().toISOString().slice(11, 19),
@@ -117,22 +132,25 @@ if (QUICK) {
       'bar:',
       width,
       'toast:',
-      toastText,
-      'ort:',
-      ortLoaded
+      toastText
     );
   }, 10000);
-  await page.waitForSelector('.result-card', { timeout: 480000 }).finally(() => clearInterval(poll));
+  await page
+    .waitForFunction(
+      () => document.querySelector('.grid .card .frame .photo').src.startsWith('data:'),
+      null,
+      { timeout: 480000 }
+    )
+    .finally(() => clearInterval(poll));
 
-  const cardName = await page.textContent('.result-card .card-name');
-  assert(cardName.includes('browser-input'), '结果卡片已生成，文件名正确');
+  assert(true, '画框 1 的照片已替换为自定义图片');
 
-  // ---- 2. 校验剪影像素 ----
+  // ---- 2b. 校验剪影像素 ----
   const stats = await page.evaluate(async () => {
-    const el = document.querySelector('.result-card .png-silhouette');
+    const el = document.querySelector('.grid .card .frame .silhouette');
     const bg = getComputedStyle(el).backgroundImage;
-    const m = bg && bg.match(/url\("?(blob:[^")]+)"?\)/);
-    if (!m) return { error: '未找到剪影 blob URL: ' + bg };
+    const m = bg && bg.match(/url\("?(data:image\/png;base64,[^")]+)"?\)/);
+    if (!m) return { error: '未找到剪影 data URL: ' + bg };
     const img = new Image();
     img.src = m[1];
     await img.decode();
@@ -154,17 +172,14 @@ if (QUICK) {
     return { w: c.width, h: c.height, total, opaque, white, ratio: opaque / total };
   });
   console.log('silhouette stats:', JSON.stringify(stats));
-  assert(!stats.error, '剪影 blob 可访问');
+  assert(!stats.error, '剪影 data URL 可访问');
   assert(stats.ratio > 0.12 && stats.ratio < 0.55, '主体面积占比合理（约 23% 的圆）');
   assert(stats.opaque > 0 && stats.opaque === stats.white, '所有不透明像素均为纯白');
-
-  // 下载按钮存在
-  const downloadHref = await page.getAttribute('.result-card .act-btn[download]', 'href');
-  assert(downloadHref && downloadHref.startsWith('blob:'), '下载按钮指向剪影 blob');
+} else {
+  console.log('quick mode: 跳过模型推理，只验证设置面板与持久化');
 }
 
 // ---- 3. 自定义标题与背景色 ----
-await page.click('#settings-btn');
 await page.fill('#set-title', '我的剪影');
 await page.fill('#set-sub', 'My Gallery');
 await page.click('.swatch[data-color="#111111"]');
@@ -173,27 +188,30 @@ await page.waitForTimeout(600); // 等待背景色过渡动画结束
 
 assert((await page.textContent('#gallery-title')) === '我的剪影', '标题即时生效');
 assert((await page.textContent('#gallery-sub')) === 'My Gallery', '副标题即时生效');
-console.log(
-  '[debug] bg:',
-  await page.evaluate(() => {
-    const cs = getComputedStyle(document.body);
-    return {
-      backgroundColor: cs.backgroundColor,
-      pageBgVar: getComputedStyle(document.documentElement).getPropertyValue('--page-bg').trim(),
-    };
-  })
-);
 assert(
   (await page.evaluate(() => getComputedStyle(document.body).backgroundColor)) === 'rgb(17, 17, 17)',
   '背景色即时生效'
 );
 
+// ---- 4. 刷新后持久化（标题/背景/画框内容） ----
 await page.reload({ waitUntil: 'load' });
 assert((await page.textContent('#gallery-title')) === '我的剪影', '刷新后标题持久化');
 assert(
   (await page.evaluate(() => getComputedStyle(document.body).backgroundColor)) === 'rgb(17, 17, 17)',
   '刷新后背景色持久化'
 );
+if (!QUICK) {
+  const photoSrc = await page.evaluate(() => document.querySelector('.grid .card .frame .photo').src);
+  assert(photoSrc.startsWith('data:'), '刷新后画框 1 的自定义内容持久化');
+
+  // ---- 5. 恢复默认 ----
+  await page.click('#settings-btn');
+  await page.click('#frame-settings .frame-edit:first-child .ghost-btn');
+  await page.waitForFunction(
+    () => document.querySelector('.grid .card .frame .photo').src.endsWith('01-mountains.svg')
+  );
+  assert(true, '画框 1 恢复默认图片');
+}
 
 // ---- 收尾 ----
 await page.screenshot({ path: path.join(tmpDir, 'browser-result.png'), fullPage: true });

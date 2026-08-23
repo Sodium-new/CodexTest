@@ -1,9 +1,9 @@
 /**
  * 剪影画廊 · 交互脚本
  *
- * - 上传照片 → onnxruntime-web + RMBG-1.4（浏览器本地推理）→ 白色剪影 PNG
- * - 悬停查看原图、下载剪影、删除卡片
- * - 自定义页面标题与背景（本地持久化）
+ * - 更换画框照片 → onnxruntime-web + RMBG-1.4（浏览器本地推理）→ 白色剪影 PNG
+ * - 悬停查看原图
+ * - 自定义标题、背景与画框内容（本地持久化）
  *
  * 图片与模型都在浏览器本地处理，不会上传到任何服务器。
  */
@@ -30,21 +30,30 @@
     sub: 'Silhouette Gallery',
     bgColor: '#f0f0f0',
     bgImage: '',
+    frames: [null, null, null, null],
   };
 
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
 
   /* ---------------- DOM ---------------- */
-  const grid = $('#grid');
-  const uploadCard = $('#upload-card');
-  const uploadFrame = $('#upload-frame');
-  const fileInput = $('#file-input');
-  const uploadInner = $('#upload-inner');
-  const uploadNote = $('#upload-note');
-  const uploadStatus = $('#upload-status');
-  const uploadProgress = $('#upload-progress');
-  const uploadProgressBar = $('#upload-progress-bar');
+  const frameEls = $$('.grid .card .frame');
+  const FRAME_DEFAULTS = frameEls.map((f) => {
+    const photo = f.querySelector('.photo');
+    const sil = f.querySelector('.silhouette');
+    return {
+      photo: photo.getAttribute('src'),
+      alt: photo.getAttribute('alt'),
+      mask: sil.style.getPropertyValue('--mask'),
+      label: f.getAttribute('aria-label'),
+    };
+  });
+
+  const frameSettings = $('#frame-settings');
+  const frameFileInput = $('#frame-file');
+  const frameProgress = $('#frame-progress');
+  const frameProgressBar = $('#frame-progress-bar');
+  const frameStatus = $('#frame-status');
 
   const settingsBtn = $('#settings-btn');
   const settingsPanel = $('#settings-panel');
@@ -65,9 +74,9 @@
   /* ---------------- 状态 ---------------- */
   let sessionPromise = null;
   let ort = null;
-  let processing = false;
-  const queue = [];
   let toastTimer = null;
+  let frameBusy = false;
+  let editingFrameIndex = -1;
 
   /* ---------------- 小工具 ---------------- */
   function makeCanvas(w, h) {
@@ -103,6 +112,39 @@
       img.onerror = () => {
         URL.revokeObjectURL(url);
         reject(new Error('图片无法读取'));
+      };
+      img.src = url;
+    });
+  }
+
+  function blobToDataURL(blob) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = () => reject(new Error('图片读取失败'));
+      r.readAsDataURL(blob);
+    });
+  }
+
+  function fileToDataURL(file, maxDim, quality) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+        const w = Math.round(img.naturalWidth * scale);
+        const h = Math.round(img.naturalHeight * scale);
+        const c = makeCanvas(w, h);
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        resolve(c.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('图片读取失败'));
       };
       img.src = url;
     });
@@ -296,166 +338,136 @@
     }
   }
 
-  /* ---------------- 上传与队列 ---------------- */
-  function setUploadBusy(busy, statusText) {
-    uploadFrame.classList.toggle('busy', busy);
-    uploadInner.style.pointerEvents = busy ? 'none' : '';
-    if (statusText) {
-      uploadStatus.textContent = statusText;
-      uploadStatus.hidden = false;
+  /* ---------------- 画框内容 ---------------- */
+  function applyFrame(index, content) {
+    const frame = frameEls[index];
+    const photo = frame.querySelector('.photo');
+    const sil = frame.querySelector('.silhouette');
+    const d = FRAME_DEFAULTS[index];
+    if (content) {
+      photo.src = content.original;
+      photo.alt = content.name;
+      frame.setAttribute('aria-label', content.name + '，悬停查看原图');
+      sil.classList.add('png-silhouette');
+      sil.style.removeProperty('--mask');
+      sil.style.setProperty('--silhouette-img', 'url("' + content.silhouette + '")');
     } else {
-      uploadStatus.hidden = true;
+      photo.src = d.photo;
+      photo.alt = d.alt;
+      frame.setAttribute('aria-label', d.label);
+      sil.classList.remove('png-silhouette');
+      sil.style.removeProperty('--silhouette-img');
+      sil.style.setProperty('--mask', d.mask);
     }
   }
 
-  function setDownloadProgress(frac) {
-    uploadProgress.hidden = false;
-    uploadProgressBar.style.width = Math.round(frac * 100) + '%';
-    if (frac >= 1) {
-      setTimeout(() => {
-        uploadProgress.hidden = true;
-        uploadProgressBar.style.width = '0%';
-      }, 300);
-    }
-  }
+  function renderFrameSettings() {
+    const state = current.frames || [];
+    frameSettings.textContent = '';
+    frameEls.forEach((frame, i) => {
+      const content = state[i] || null;
+      const d = FRAME_DEFAULTS[i];
+      const row = document.createElement('div');
+      row.className = 'frame-edit';
 
-  function makeProcessingCard(name) {
-    const fig = document.createElement('figure');
-    fig.className = 'card processing-card';
-    fig.innerHTML =
-      '<div class="frame">' +
-      '<div class="upload-inner">' +
-      '<div class="spinner" aria-hidden="true"></div>' +
-      '<p class="upload-main">正在生成剪影…</p>' +
-      '<p class="upload-sub"></p>' +
-      '</div></div>';
-    fig.querySelector('.upload-sub').textContent = name;
-    grid.insertBefore(fig, uploadCard);
-    return fig;
-  }
+      const thumb = document.createElement('img');
+      thumb.className = 'frame-thumb';
+      thumb.alt = '';
+      thumb.src = content ? content.original : d.photo;
 
-  function makeResultCard(file, result) {
-    const fig = document.createElement('figure');
-    fig.className = 'card result-card';
-    const name = safeName(file.name);
-    const silUrl = URL.createObjectURL(result.blob);
-    const alt = name + '，悬停查看原图';
+      const info = document.createElement('div');
+      info.className = 'frame-edit-info';
 
-    fig.innerHTML =
-      '<div class="frame" tabindex="0" aria-label="' + alt + '">' +
-      '<img class="photo" alt="' + name + '" draggable="false" />' +
-      '<div class="silhouette png-silhouette" aria-hidden="true"></div>' +
-      '<div class="frame-actions">' +
-      '<a class="act-btn" download="' + name + '-剪影.png">下载</a>' +
-      '<button class="act-btn danger" type="button">删除</button>' +
-      '</div></div>' +
-      '<figcaption class="card-name">' + name + '</figcaption>';
+      const name = document.createElement('span');
+      name.className = 'frame-edit-name';
+      name.textContent = '画框 ' + (i + 1) + ' · ' + (content ? content.name : d.alt);
 
-    const img = fig.querySelector('.photo');
-    img.src = result.originalUrl;
-    const sil = fig.querySelector('.silhouette');
-    sil.style.setProperty('--silhouette-img', 'url("' + silUrl + '")');
-    fig.querySelector('.act-btn[download]').href = silUrl;
+      const actions = document.createElement('div');
+      actions.className = 'frame-edit-actions';
 
-    fig.querySelector('.act-btn.danger').addEventListener('click', () => {
-      URL.revokeObjectURL(result.originalUrl);
-      URL.revokeObjectURL(silUrl);
-      fig.remove();
+      const replaceBtn = document.createElement('button');
+      replaceBtn.type = 'button';
+      replaceBtn.className = 'file-btn';
+      replaceBtn.textContent = '更换';
+      replaceBtn.disabled = frameBusy;
+      replaceBtn.title = '选择照片生成白色剪影';
+      replaceBtn.addEventListener('click', () => {
+        editingFrameIndex = i;
+        frameFileInput.value = '';
+        frameFileInput.click();
+      });
+
+      const restoreBtn = document.createElement('button');
+      restoreBtn.type = 'button';
+      restoreBtn.className = 'ghost-btn';
+      restoreBtn.textContent = '恢复默认';
+      restoreBtn.disabled = !content || frameBusy;
+      restoreBtn.addEventListener('click', () => {
+        const frames = (current.frames || []).slice();
+        frames[i] = null;
+        updateAndSave({ frames });
+        showToast('画框 ' + (i + 1) + ' 已恢复默认');
+      });
+
+      actions.append(replaceBtn, restoreBtn);
+      info.append(name, actions);
+      row.append(thumb, info);
+      frameSettings.appendChild(row);
     });
-
-    grid.insertBefore(fig, uploadCard);
   }
 
-  async function processOne(file) {
-    const card = makeProcessingCard(file.name);
+  function setFrameBusy(busy, statusText) {
+    frameBusy = busy;
+    frameProgress.hidden = !busy;
+    frameStatus.textContent = statusText || '';
+    frameProgressBar.style.width = busy ? '0%' : '';
+    renderFrameSettings();
+  }
+
+  function setFrameProgress(frac) {
+    frameProgressBar.style.width = Math.round(frac * 100) + '%';
+  }
+
+  async function replaceFrameContent(index, file) {
+    const ext = (file.name || '').split('.').pop().toLowerCase();
+    const looksLikeImage =
+      file.type.startsWith('image/') || ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'].includes(ext);
+    if (!looksLikeImage) {
+      showToast('请选择图片文件');
+      return;
+    }
+    if (file.size > MAX_FILE_MB * 1024 * 1024) {
+      showToast('「' + file.name + '」超过 ' + MAX_FILE_MB + 'MB，已跳过');
+      return;
+    }
+    setFrameBusy(true, '正在处理「' + file.name + '」… 首次使用需下载模型，请稍候');
     try {
-      const result = await makeSilhouette(file, setDownloadProgress);
-      card.remove();
-      makeResultCard(file, result);
-      return true;
+      const result = await makeSilhouette(file, setFrameProgress);
+      setFrameProgress(1);
+      const [original, silhouette] = await Promise.all([
+        fileToDataURL(file, 1280, 0.82),
+        blobToDataURL(result.blob),
+      ]);
+      URL.revokeObjectURL(result.originalUrl);
+      const frames = (current.frames || []).slice();
+      frames[index] = { original, silhouette, name: safeName(file.name) };
+      updateAndSave({ frames });
+      showToast('画框 ' + (index + 1) + ' 已更换');
     } catch (e) {
-      card.remove();
-      showToast('处理「' + file.name + '」失败：' + e.message);
-      return false;
+      showToast('更换画框失败：' + e.message);
+    } finally {
+      setFrameBusy(false, '');
     }
   }
 
-  async function drainQueue() {
-    if (processing) return;
-    processing = true;
-    while (queue.length) {
-      const file = queue.shift();
-      setUploadBusy(true, '正在处理 ' + file.name);
-      const ok = await processOne(file);
-      if (!ok) break; // 模型/网络失败时停止后续任务，避免反复失败
-    }
-    setUploadBusy(false, '');
-    processing = false;
-  }
-
-  function handleFiles(fileList) {
-    const files = Array.from(fileList || []).filter((f) => {
-      const ext = (f.name || '').split('.').pop().toLowerCase();
-      const looksLikeImage = f.type.startsWith('image/') || ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'].includes(ext);
-      if (!looksLikeImage) return false;
-      if (f.size > MAX_FILE_MB * 1024 * 1024) {
-        showToast('「' + f.name + '」超过 ' + MAX_FILE_MB + 'MB，已跳过');
-        return false;
-      }
-      return true;
-    });
-    if (!files.length) return;
-    queue.push(...files);
-    drainQueue();
-  }
-
-  /* ---------------- 上传交互 ---------------- */
-  uploadFrame.addEventListener('click', () => {
-    if (!uploadFrame.classList.contains('busy')) fileInput.click();
-  });
-
-  uploadFrame.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      fileInput.click();
-    }
-  });
-
-  fileInput.addEventListener('change', () => {
-    handleFiles(fileInput.files);
-    fileInput.value = '';
-  });
-
-  uploadFrame.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    uploadFrame.classList.add('dragging');
-  });
-
-  uploadFrame.addEventListener('dragleave', () => {
-    uploadFrame.classList.remove('dragging');
-  });
-
-  uploadFrame.addEventListener('drop', (e) => {
-    e.preventDefault();
-    uploadFrame.classList.remove('dragging');
-    handleFiles(e.dataTransfer.files);
-  });
-
-  // 防止图片被拖到页面其他地方时浏览器直接打开
-  document.addEventListener('dragover', (e) => e.preventDefault());
-  document.addEventListener('drop', (e) => e.preventDefault());
-
-  // 支持从剪贴板直接粘贴图片
-  document.addEventListener('paste', (e) => {
-    const items = (e.clipboardData && e.clipboardData.items) || [];
-    const files = [];
-    for (const item of items) {
-      if (item.kind === 'file' && item.type.startsWith('image/')) {
-        const f = item.getAsFile();
-        if (f) files.push(f);
-      }
-    }
-    if (files.length) handleFiles(files);
+  frameFileInput.addEventListener('change', () => {
+    const file = frameFileInput.files && frameFileInput.files[0];
+    frameFileInput.value = '';
+    if (!file) return;
+    const index = editingFrameIndex;
+    editingFrameIndex = -1;
+    if (index < 0) return;
+    replaceFrameContent(index, file);
   });
 
   /* ---------------- 自定义设置 ---------------- */
@@ -487,6 +499,10 @@
       state.bgImage ? 'url("' + state.bgImage + '")' : 'none'
     );
     document.body.classList.toggle('has-bg-image', !!state.bgImage);
+
+    // 画框内容
+    (state.frames || []).forEach((content, i) => applyFrame(i, content));
+    renderFrameSettings();
 
     // 同步面板控件
     setTitle.value = state.title;
@@ -526,37 +542,12 @@
 
   setBgColor.addEventListener('input', () => updateAndSave({ bgColor: setBgColor.value }));
 
-  function fileToBgDataURL(file) {
-    return new Promise((resolve, reject) => {
-      const url = URL.createObjectURL(file);
-      const img = new Image();
-      img.onload = () => {
-        const maxDim = 1920;
-        const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
-        const w = Math.round(img.naturalWidth * scale);
-        const h = Math.round(img.naturalHeight * scale);
-        const c = makeCanvas(w, h);
-        const ctx = c.getContext('2d');
-        ctx.fillStyle = '#f0f0f0';
-        ctx.fillRect(0, 0, w, h);
-        ctx.drawImage(img, 0, 0, w, h);
-        URL.revokeObjectURL(url);
-        resolve(c.toDataURL('image/jpeg', 0.85));
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        reject(new Error('背景图片读取失败'));
-      };
-      img.src = url;
-    });
-  }
-
   setBgImage.addEventListener('change', async () => {
     const file = setBgImage.files && setBgImage.files[0];
     setBgImage.value = '';
     if (!file) return;
     try {
-      const dataUrl = await fileToBgDataURL(file);
+      const dataUrl = await fileToDataURL(file, 1920, 0.85);
       updateAndSave({ bgImage: dataUrl });
       showToast('背景图片已应用');
     } catch (e) {
