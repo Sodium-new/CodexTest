@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1770">
+  <!-- 剪影遮罩：透明背景 + 不透明主体，配合 mask-mode: alpha 使用 -->
+  <g fill="#ffffff">
+    <circle cx="250" cy="380" r="110"/>
+    <rect x="40" y="1250" width="70" height="520"/>
+    <rect x="130" y="1090" width="90" height="680"/>
+    <rect x="240" y="1300" width="80" height="470"/>
+    <rect x="340" y="1010" width="100" height="760"/>
+    <rect x="460" y="1230" width="85" height="540"/>
+    <rect x="565" y="1070" width="95" height="700"/>
+    <rect x="680" y="1290" width="80" height="480"/>
+    <rect x="780" y="1130" width="90" height="640"/>
+    <rect x="70" y="870" width="110" height="900"/>
+    <rect x="200" y="690" width="120" height="1080"/>
+    <rect x="340" y="1010" width="90" height="760"/>
+    <rect x="450" y="610" width="130" height="1160"/>
+    <rect x="600" y="820" width="110" height="950"/>
+    <rect x="730" y="570" width="140" height="1200"/>
+  </g>
+</svg>

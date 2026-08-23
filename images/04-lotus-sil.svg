@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1770">
+  <!-- 剪影遮罩：透明背景 + 不透明主体，配合 mask-mode: alpha 使用 -->
+  <g fill="#ffffff">
+    <g transform="translate(450 950)">
+      <g>
+        <path d="M0,0 C-55,-170 -30,-330 0,-390 C30,-330 55,-170 0,0" transform="rotate(0)"/>
+        <path d="M0,0 C-55,-170 -30,-330 0,-390 C30,-330 55,-170 0,0" transform="rotate(60)"/>
+        <path d="M0,0 C-55,-170 -30,-330 0,-390 C30,-330 55,-170 0,0" transform="rotate(120)"/>
+        <path d="M0,0 C-55,-170 -30,-330 0,-390 C30,-330 55,-170 0,0" transform="rotate(180)"/>
+        <path d="M0,0 C-55,-170 -30,-330 0,-390 C30,-330 55,-170 0,0" transform="rotate(240)"/>
+        <path d="M0,0 C-55,-170 -30,-330 0,-390 C30,-330 55,-170 0,0" transform="rotate(300)"/>
+      </g>
+      <g>
+        <path d="M0,0 C-45,-130 -24,-250 0,-300 C24,-250 45,-130 0,0" transform="rotate(30)"/>
+        <path d="M0,0 C-45,-130 -24,-250 0,-300 C24,-250 45,-130 0,0" transform="rotate(90)"/>
+        <path d="M0,0 C-45,-130 -24,-250 0,-300 C24,-250 45,-130 0,0" transform="rotate(150)"/>
+        <path d="M0,0 C-45,-130 -24,-250 0,-300 C24,-250 45,-130 0,0" transform="rotate(210)"/>
+        <path d="M0,0 C-45,-130 -24,-250 0,-300 C24,-250 45,-130 0,0" transform="rotate(270)"/>
+        <path d="M0,0 C-45,-130 -24,-250 0,-300 C24,-250 45,-130 0,0" transform="rotate(330)"/>
+      </g>
+      <g>
+        <path d="M0,0 C-32,-95 -17,-180 0,-215 C17,-180 32,-95 0,0" transform="rotate(18)"/>
+        <path d="M0,0 C-32,-95 -17,-180 0,-215 C17,-180 32,-95 0,0" transform="rotate(90)"/>
+        <path d="M0,0 C-32,-95 -17,-180 0,-215 C17,-180 32,-95 0,0" transform="rotate(162)"/>
+        <path d="M0,0 C-32,-95 -17,-180 0,-215 C17,-180 32,-95 0,0" transform="rotate(234)"/>
+        <path d="M0,0 C-32,-95 -17,-180 0,-215 C17,-180 32,-95 0,0" transform="rotate(306)"/>
+      </g>
+      <circle r="36"/>
+      <g>
+        <circle cx="0" cy="-58" r="5"/>
+        <circle cx="50" cy="-29" r="5"/>
+        <circle cx="50" cy="29" r="5"/>
+        <circle cx="0" cy="58" r="5"/>
+        <circle cx="-50" cy="29" r="5"/>
+        <circle cx="-50" cy="-29" r="5"/>
+      </g>
+    </g>
+    <path d="M450,960 C430,1150 380,1300 330,1470" stroke="#ffffff" stroke-width="20" fill="none" stroke-linecap="round"/>
+    <ellipse cx="270" cy="1400" rx="230" ry="125"/>
+    <g stroke="#ffffff" stroke-width="8" stroke-linecap="round">
+      <path d="M270,1400 L90,1330"/>
+      <path d="M270,1400 L140,1285"/>
+      <path d="M270,1400 L270,1260"/>
+      <path d="M270,1400 L400,1285"/>
+      <path d="M270,1400 L460,1330"/>
+      <path d="M270,1400 L90,1470"/>
+      <path d="M270,1400 L460,1470"/>
+      <path d="M270,1400 L270,1535"/>
+    </g>
+  </g>
+</svg>

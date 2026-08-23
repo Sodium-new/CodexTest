@@ -1,8 +1,8 @@
 /**
  * 剪影画廊 · 交互脚本
  *
- * - 更换画框照片 → onnxruntime-web + RMBG-1.4（浏览器本地推理）→ 白色剪影 PNG
- * - 悬停查看原图
+ * - 更换画框照片 → onnxruntime-web + RMBG-1.4（浏览器本地推理）→ 确定主体 → 白色剪影 PNG
+ * - 悬停快速预览原图，点击方框查看完整原图
  * - 自定义标题、背景与画框内容（本地持久化）
  *
  * 图片与模型都在浏览器本地处理，不会上传到任何服务器。
@@ -20,7 +20,8 @@
   ];
   const MODEL_CACHE = 'silhouette-model-v1';
   const MODEL_SIZE = 1024;          // 模型输入尺寸
-  const MAX_OUTPUT_DIM = 1600;      // 剪影输出最大边长
+  const MAX_OUTPUT_DIM = 1600;      // 主体裁剪采样最大边长
+  const SILHOUETTE_MAX_DIM = 1200;   // 剪影画布最大边长（画框内背景图）
   const MAX_FILE_MB = 30;
   const HOST_TIMEOUT_MS = 10000;    // 每个模型源的超时时间
 
@@ -70,6 +71,12 @@
   const galleryTitle = $('#gallery-title');
   const gallerySub = $('#gallery-sub');
   const toast = $('#toast');
+
+  const lightbox = $('#lightbox');
+  const lightboxImg = $('#lightbox-img');
+  const lightboxCaption = $('#lightbox-caption');
+  const lightboxClose = $('#lightbox-close');
+  let lightboxTrigger = null;
 
   /* ---------------- 状态 ---------------- */
   let sessionPromise = null;
@@ -261,16 +268,212 @@
   }
 
   /* ---------------- 剪影生成 ---------------- */
+  // 主体识别：对比增强 → 阈值二值化 → 保留最大连通域（清除背景噪点）→ 包围盒
+  function findLargestComponent(binary, w, h) {
+    const label = new Int32Array(w * h);
+    const stack = new Int32Array(w * h);
+    let best = null;
+    let nextId = 1;
+    for (let start = 0; start < w * h; start++) {
+      if (!binary[start] || label[start]) continue;
+      const id = nextId++;
+      let sp = 0;
+      stack[sp++] = start;
+      label[start] = id;
+      let count = 0;
+      let x0 = w, y0 = h, x1 = -1, y1 = -1;
+      while (sp > 0) {
+        const p2 = stack[--sp];
+        const x = p2 % w;
+        const y = (p2 / w) | 0;
+        count++;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+        if (x > 0) {
+          const q = p2 - 1;
+          if (binary[q] && !label[q]) {
+            label[q] = id;
+            stack[sp++] = q;
+          }
+        }
+        if (x < w - 1) {
+          const q = p2 + 1;
+          if (binary[q] && !label[q]) {
+            label[q] = id;
+            stack[sp++] = q;
+          }
+        }
+        if (y > 0) {
+          const q = p2 - w;
+          if (binary[q] && !label[q]) {
+            label[q] = id;
+            stack[sp++] = q;
+          }
+        }
+        if (y < h - 1) {
+          const q = p2 + w;
+          if (binary[q] && !label[q]) {
+            label[q] = id;
+            stack[sp++] = q;
+          }
+        }
+      }
+      if (!best || count > best.count) {
+        best = { id, count, x0, y0, x1, y1 };
+      }
+    }
+    if (!best) return null;
+    const keep = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) {
+      if (label[i] === best.id) keep[i] = 1;
+    }
+    return { count: best.count, x0: best.x0, y0: best.y0, x1: best.x1, y1: best.y1, keep };
+  }
+
+  // 从模型蒙版中确定主体：保留最大连通域内的软蒙版，其余位置清零
+  function refineSubjectMask(rawMask) {
+    const n = MODEL_SIZE * MODEL_SIZE;
+    const binary = new Uint8Array(n);
+    for (let i = 0; i < n; i++) {
+      if (clamp((rawMask[i] - 0.5) * 1.3 + 0.5, 0, 1) >= 0.5) binary[i] = 1;
+    }
+    const comp = findLargestComponent(binary, MODEL_SIZE, MODEL_SIZE);
+    if (!comp || comp.count < 24) return null; // 未识别到足够大的主体，交由回退流程
+    const mask = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      if (comp.keep[i]) mask[i] = clamp((rawMask[i] - 0.5) * 1.3 + 0.5, 0, 1);
+    }
+    return { mask, box: { x0: comp.x0, y0: comp.y0, x1: comp.x1, y1: comp.y1 } };
+  }
+
+  function maskToCanvas(mask, enhance) {
+    const c = makeCanvas(MODEL_SIZE, MODEL_SIZE);
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    const image = ctx.createImageData(MODEL_SIZE, MODEL_SIZE);
+    for (let i = 0; i < mask.length; i++) {
+      const v = enhance ? clamp((mask[i] - 0.5) * 1.3 + 0.5, 0, 1) : mask[i];
+      const g = Math.round(clamp(v, 0, 1) * 255);
+      image.data[i * 4] = g;
+      image.data[i * 4 + 1] = g;
+      image.data[i * 4 + 2] = g;
+      image.data[i * 4 + 3] = 255;
+    }
+    ctx.putImageData(image, 0, 0);
+    return c;
+  }
+
+  function canvasToSilhouetteBlob(canvas) {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error('剪影生成失败'))),
+        'image/png'
+      );
+    });
+  }
+
+  // 画框宽高比：运行时取第一个画框的实测比例（与 style.css 的 aspect-ratio 保持一致）
+  function frameAspect() {
+    const rect = frameEls[0].getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 ? rect.width / rect.height : 1 / 1.97;
+  }
+
+  // 主体剪影：裁剪主体包围盒（带边距），居中放入画框比例的画布
+  function renderSubjectSilhouette(subject, imgW, imgH) {
+    const maskCanvas = maskToCanvas(subject.mask, false);
+    const box = subject.box;
+
+    const scale = Math.min(1, MAX_OUTPUT_DIM / Math.max(imgW, imgH));
+    const cropW = Math.max(1, Math.round((box.x1 - box.x0 + 1) * scale));
+    const cropH = Math.max(1, Math.round((box.y1 - box.y0 + 1) * scale));
+    const margin = Math.max(12, Math.round(0.06 * Math.max(cropW, cropH)));
+
+    // 主体 + 边距 → 放入画框比例的画布，保证整个主体都完整显示在画框内
+    const pw = cropW + margin * 2;
+    const ph = cropH + margin * 2;
+    const aspect = frameAspect();
+    const wider = pw / ph > aspect;
+    let canvasW = wider ? pw : Math.ceil(ph * aspect);
+    let canvasH = wider ? Math.ceil(pw / aspect) : ph;
+    const cap = Math.min(1, SILHOUETTE_MAX_DIM / Math.max(canvasW, canvasH));
+    canvasW = Math.max(1, Math.round(canvasW * cap));
+    canvasH = Math.max(1, Math.round(canvasH * cap));
+
+    const out = makeCanvas(canvasW, canvasH);
+    const octx = out.getContext('2d', { willReadFrequently: true });
+    octx.imageSmoothingEnabled = true;
+    octx.imageSmoothingQuality = 'high';
+
+    const ox = (canvasW - pw * cap) / 2;
+    const oy = (canvasH - ph * cap) / 2;
+    octx.drawImage(
+      maskCanvas,
+      box.x0,
+      box.y0,
+      box.x1 - box.x0 + 1,
+      box.y1 - box.y0 + 1,
+      Math.round(ox + margin * cap),
+      Math.round(oy + margin * cap),
+      Math.round(cropW * cap),
+      Math.round(cropH * cap)
+    );
+
+    // 蒙版画布不透明，灰度值在 RGB 通道；取红色通道作为 alpha，填充纯白
+    const drawn = octx.getImageData(0, 0, canvasW, canvasH).data;
+    const sil = octx.createImageData(canvasW, canvasH);
+    for (let i = 0; i < canvasW * canvasH; i++) {
+      sil.data[i * 4] = 255;
+      sil.data[i * 4 + 1] = 255;
+      sil.data[i * 4 + 2] = 255;
+      sil.data[i * 4 + 3] = drawn[i * 4];
+    }
+    octx.putImageData(sil, 0, 0);
+    return canvasToSilhouetteBlob(out);
+  }
+
+  // 回退：整图蒙版放大到输出尺寸（主体识别失败时使用，保持旧行为）
+  function renderFallbackSilhouette(rawMask, imgW, imgH) {
+    const maskCanvas = maskToCanvas(rawMask, true);
+    const scale = Math.min(1, MAX_OUTPUT_DIM / Math.max(imgW, imgH));
+    const outW = Math.max(1, Math.round(imgW * scale));
+    const outH = Math.max(1, Math.round(imgH * scale));
+    const out = makeCanvas(outW, outH);
+    const octx = out.getContext('2d', { willReadFrequently: true });
+    octx.imageSmoothingEnabled = true;
+    octx.imageSmoothingQuality = 'high';
+    // 蒙版是 1024×1024 的留边画布，等比放入输出画布，避免主体变形
+    const fit = Math.min(outW / MODEL_SIZE, outH / MODEL_SIZE);
+    const mw = Math.max(1, Math.round(MODEL_SIZE * fit));
+    const mh = Math.max(1, Math.round(MODEL_SIZE * fit));
+    octx.drawImage(maskCanvas, (outW - mw) / 2, (outH - mh) / 2, mw, mh);
+    const drawn = octx.getImageData(0, 0, outW, outH).data;
+    const sil = octx.createImageData(outW, outH);
+    for (let i = 0; i < outW * outH; i++) {
+      sil.data[i * 4] = 255;
+      sil.data[i * 4 + 1] = 255;
+      sil.data[i * 4 + 2] = 255;
+      sil.data[i * 4 + 3] = drawn[i * 4];
+    }
+    octx.putImageData(sil, 0, 0);
+    return canvasToSilhouetteBlob(out);
+  }
+
   async function makeSilhouette(file, onProgress) {
     const { img, url } = await loadImageFromFile(file);
     try {
       const width = img.naturalWidth;
       const height = img.naturalHeight;
 
-      // 1. 预处理：缩放至模型输入尺寸 1024×1024
+      // 1. 预处理：等比缩放至模型输入尺寸 1024×1024（四周留边，避免拉伸变形）
       const prep = makeCanvas(MODEL_SIZE, MODEL_SIZE);
       const pctx = prep.getContext('2d', { willReadFrequently: true });
-      pctx.drawImage(img, 0, 0, MODEL_SIZE, MODEL_SIZE);
+      pctx.fillStyle = '#f0f0f0';
+      pctx.fillRect(0, 0, MODEL_SIZE, MODEL_SIZE);
+      const fitScale = Math.min(MODEL_SIZE / width, MODEL_SIZE / height);
+      const drawW = Math.max(1, Math.round(width * fitScale));
+      const drawH = Math.max(1, Math.round(height * fitScale));
+      pctx.drawImage(img, (MODEL_SIZE - drawW) / 2, (MODEL_SIZE - drawH) / 2, drawW, drawH);
       const pixels = pctx.getImageData(0, 0, MODEL_SIZE, MODEL_SIZE).data;
 
       const n = MODEL_SIZE * MODEL_SIZE;
@@ -289,47 +492,13 @@
       const outName = session.outputNames[0];
       const mask = results[outName].data; // Float32Array，1024×1024，0~1 前景 alpha
 
-      // 3. 蒙版转图片，轻微增加对比让边缘更利落
-      const maskCanvas = makeCanvas(MODEL_SIZE, MODEL_SIZE);
-      const mctx = maskCanvas.getContext('2d', { willReadFrequently: true });
-      const maskImage = mctx.createImageData(MODEL_SIZE, MODEL_SIZE);
-      for (let i = 0; i < n; i++) {
-        const v = Math.round(clamp((mask[i] - 0.5) * 1.3 + 0.5, 0, 1) * 255);
-        maskImage.data[i * 4] = v;
-        maskImage.data[i * 4 + 1] = v;
-        maskImage.data[i * 4 + 2] = v;
-        maskImage.data[i * 4 + 3] = 255;
-      }
-      mctx.putImageData(maskImage, 0, 0);
+      // 3. 确定主体：保留最大连通域、计算包围盒；失败时回退为整图剪影
+      const subject = refineSubjectMask(mask);
 
-      // 4. 放大蒙版到输出尺寸，得到平滑的 alpha
-      const scale = Math.min(1, MAX_OUTPUT_DIM / Math.max(width, height));
-      const outW = Math.max(1, Math.round(width * scale));
-      const outH = Math.max(1, Math.round(height * scale));
-      const outCanvas = makeCanvas(outW, outH);
-      const octx = outCanvas.getContext('2d', { willReadFrequently: true });
-      octx.imageSmoothingEnabled = true;
-      octx.imageSmoothingQuality = 'high';
-      octx.drawImage(maskCanvas, 0, 0, outW, outH);
-      // 蒙版画布不透明，灰度值在 RGB 通道；取红色通道作为 alpha
-      const drawn = octx.getImageData(0, 0, outW, outH).data;
-
-      // 5. 填充白色，保留 alpha → 白色剪影
-      const sil = octx.createImageData(outW, outH);
-      for (let i = 0; i < outW * outH; i++) {
-        sil.data[i * 4] = 255;
-        sil.data[i * 4 + 1] = 255;
-        sil.data[i * 4 + 2] = 255;
-        sil.data[i * 4 + 3] = drawn[i * 4];
-      }
-      octx.putImageData(sil, 0, 0);
-
-      const blob = await new Promise((resolve, reject) => {
-        outCanvas.toBlob(
-          (b) => (b ? resolve(b) : reject(new Error('剪影生成失败'))),
-          'image/png'
-        );
-      });
+      // 4. 剪影化：主体居中放入画框比例的画布，输出白色透明 PNG
+      const blob = subject
+        ? await renderSubjectSilhouette(subject, width, height)
+        : await renderFallbackSilhouette(mask, width, height);
 
       return { blob, originalUrl: url };
     } catch (e) {
@@ -347,7 +516,7 @@
     if (content) {
       photo.src = content.original;
       photo.alt = content.name;
-      frame.setAttribute('aria-label', content.name + '，悬停查看原图');
+      frame.setAttribute('aria-label', content.name + '，点击查看完整原图');
       sil.classList.add('png-silhouette');
       sil.style.removeProperty('--mask');
       sil.style.setProperty('--silhouette-img', 'url("' + content.silhouette + '")');
@@ -470,6 +639,43 @@
     replaceFrameContent(index, file);
   });
 
+  /* ---------------- 完整原图查看（点击方框） ---------------- */
+  function openLightbox(frame) {
+    const photo = frame.querySelector('.photo');
+    if (!photo) return;
+    lightboxImg.src = photo.getAttribute('src');
+    lightboxImg.alt = photo.alt || '';
+    lightboxCaption.textContent = photo.alt || '';
+    lightbox.hidden = false;
+    document.body.classList.add('lightbox-open');
+    lightboxTrigger = frame;
+    lightboxClose.focus();
+  }
+
+  function closeLightbox() {
+    if (lightbox.hidden) return;
+    lightbox.hidden = true;
+    document.body.classList.remove('lightbox-open');
+    lightboxImg.removeAttribute('src');
+    if (lightboxTrigger) lightboxTrigger.focus();
+    lightboxTrigger = null;
+  }
+
+  frameEls.forEach((frame) => {
+    frame.addEventListener('click', () => openLightbox(frame));
+    frame.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openLightbox(frame);
+      }
+    });
+  });
+
+  lightboxClose.addEventListener('click', closeLightbox);
+  lightbox.addEventListener('click', (e) => {
+    if (e.target === lightbox) closeLightbox();
+  });
+
   /* ---------------- 自定义设置 ---------------- */
   function loadSettings() {
     try {
@@ -566,7 +772,10 @@
   settingsClose.addEventListener('click', () => togglePanel(false));
   settingsDone.addEventListener('click', () => togglePanel(false));
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') togglePanel(false);
+    if (e.key === 'Escape') {
+      if (!lightbox.hidden) closeLightbox();
+      else togglePanel(false);
+    }
   });
   document.addEventListener('click', (e) => {
     if (!settingsPanel.hidden && !settingsPanel.contains(e.target) && !settingsBtn.contains(e.target)) {

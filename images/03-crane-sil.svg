@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1770">
+  <!-- 剪影遮罩：透明背景 + 不透明主体，配合 mask-mode: alpha 使用 -->
+  <g fill="#ffffff">
+    <circle cx="650" cy="330" r="105"/>
+    <path d="M-20,1360 C140,1300 300,1310 460,1370" stroke="#ffffff" stroke-width="20" fill="none" stroke-linecap="round"/>
+    <g stroke="#ffffff" stroke-width="10" stroke-linecap="round">
+      <path d="M300,1328 L260,1210"/>
+      <path d="M380,1340 L420,1230"/>
+      <path d="M160,1320 L120,1220"/>
+    </g>
+    <ellipse cx="410" cy="1215" rx="185" ry="115"/>
+    <path d="M525,1130 C620,1030 680,900 700,780" stroke="#ffffff" stroke-width="48" fill="none" stroke-linecap="round"/>
+    <circle cx="706" cy="742" r="46"/>
+    <polygon points="745,725 830,712 742,760"/>
+    <g stroke="#ffffff" stroke-width="16" stroke-linecap="round">
+      <path d="M360,1300 C360,1400 350,1470 330,1530"/>
+      <path d="M440,1300 C440,1400 430,1470 420,1540"/>
+      <path d="M330,1530 L285,1565"/>
+      <path d="M420,1540 L470,1570"/>
+    </g>
+  </g>
+</svg>

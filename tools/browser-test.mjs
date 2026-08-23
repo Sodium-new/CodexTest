@@ -9,6 +9,7 @@
  *   2. 通过设置面板更换画框照片 → 等待 AI 剪影 → 校验剪影 PNG 像素
  *   3. 自定义标题/背景色/画框内容 → 刷新后仍保留
  *   4. 恢复默认画框内容
+ *   5. 点击画框打开灯箱查看完整原图，Esc 关闭
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -195,6 +196,7 @@ assert(
 
 // ---- 4. 刷新后持久化（标题/背景/画框内容） ----
 await page.reload({ waitUntil: 'load' });
+await page.waitForTimeout(600); // 等待背景色过渡动画结束，避免读到过渡中间值
 assert((await page.textContent('#gallery-title')) === '我的剪影', '刷新后标题持久化');
 assert(
   (await page.evaluate(() => getComputedStyle(document.body).backgroundColor)) === 'rgb(17, 17, 17)',
@@ -212,6 +214,25 @@ if (!QUICK) {
   );
   assert(true, '画框 1 恢复默认图片');
 }
+
+// ---- 6. 点击画框查看完整原图（灯箱） ----
+await page.click('.grid .card .frame');
+await page.waitForSelector('#lightbox:not([hidden])');
+const lbState = await page.evaluate(() => {
+  const photo = document.querySelector('.grid .card .frame .photo');
+  const img = document.getElementById('lightbox-img');
+  return {
+    srcEqual: img.src === photo.src,
+    caption: document.getElementById('lightbox-caption').textContent,
+    bodyLocked: document.body.classList.contains('lightbox-open'),
+  };
+});
+assert(lbState.srcEqual, '灯箱显示与画框一致的原图');
+assert(lbState.caption.length > 0, '灯箱显示图片标题');
+assert(lbState.bodyLocked, '灯箱打开时锁定页面滚动');
+await page.keyboard.press('Escape');
+await page.waitForFunction(() => document.getElementById('lightbox').hidden === true);
+assert(true, '点击画框打开灯箱，Esc 关闭');
 
 // ---- 收尾 ----
 await page.screenshot({ path: path.join(tmpDir, 'browser-result.png'), fullPage: true });
