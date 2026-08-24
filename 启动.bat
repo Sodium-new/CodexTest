@@ -4,16 +4,24 @@ cd /d "%~dp0"
 
 rem ============================================================
 rem  Silhouette Gallery launcher
-rem  Works on any Windows machine. Uses Python / Node.js when
-rem  available; otherwise falls back to the built-in PowerShell
-rem  server, so nothing needs to be installed.
+rem  Works on any Windows machine. Uses Node.js when available;
+rem  otherwise falls back to the built-in PowerShell server, so
+rem  nothing needs to be installed.
 rem ============================================================
 
 rem ---------- make sure the project files are actually here ----------
 if not exist "%~dp0index.html" (
   echo [ERROR] index.html was not found next to this file.
-  echo Please extract ALL files from the downloaded ZIP into one folder,
-  echo then run this file again.
+  echo.
+  echo This almost always means you double-clicked inside the ZIP file.
+  echo Windows then only extracts this single file to a temp folder.
+  echo Please do this instead:
+  echo.
+  echo   1. Right-click the downloaded .zip file and choose "Extract All...".
+  echo   2. Open the extracted folder.
+  echo   3. Double-click 启动.bat inside that folder.
+  echo.
+  echo All files must stay together: index.html, images, tools, etc.
   echo.
   pause
   exit /b 1
@@ -42,22 +50,12 @@ if not defined PORT_OK (
 echo Using port: %PORT%
 
 rem ---------- find a static server ----------
+rem We intentionally avoid "python -m http.server": on Windows machines
+rem whose computer name contains non-ASCII characters (for example a
+rem Chinese computer name), Python 3.x http.server crashes in
+rem socket.getfqdn() with a UnicodeDecodeError. Node and the built-in
+rem PowerShell server below do not read the hostname, so they are safe.
 set "SRV="
-where py >nul 2>nul
-if "!errorlevel!"=="0" (
-  set "SRV=py -3 -m http.server %PORT% --bind 127.0.0.1"
-  goto :run
-)
-where python >nul 2>nul
-if "!errorlevel!"=="0" (
-  set "SRV=python -m http.server %PORT% --bind 127.0.0.1"
-  goto :run
-)
-where python3 >nul 2>nul
-if "!errorlevel!"=="0" (
-  set "SRV=python3 -m http.server %PORT% --bind 127.0.0.1"
-  goto :run
-)
 where node >nul 2>nul
 if "!errorlevel!"=="0" (
   set "SRV=node server.js %PORT%"
