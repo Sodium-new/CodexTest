@@ -1,0 +1,4 @@
+# Keep Windows batch files with CRLF line endings so they run
+# correctly when downloaded from GitHub (cmd.exe has known bugs
+# with LF-only batch files inside parenthesized blocks).
+*.bat text eol=crlf
