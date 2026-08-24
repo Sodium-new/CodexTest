@@ -53,34 +53,36 @@ body.has-bg-image .bg-overlay {
   position: relative;
   z-index: 1;
   width: min(1700px, 97vw);
-  padding: clamp(24px, 4.5vh, 56px) 0;
+  padding: clamp(16px, 2.5vh, 32px) 0;
+  --stair-step: clamp(16px, 2.2vh, 30px);
 }
 
 .gallery-head {
   text-align: center;
-  margin-bottom: clamp(20px, 4vh, 44px);
+  /* 阶梯排列：右侧画框上移最多 3 级；标题紧凑化，让四幅画框同屏可见 */
+  margin-bottom: calc(clamp(8px, 1.2vh, 14px) + var(--stair-step) * 3);
 }
 
 .gallery-head h1 {
-  margin: 0 0 10px;
-  font-size: clamp(26px, 3.4vw, 44px);
+  margin: 0 0 6px;
+  font-size: clamp(20px, 2.6vw, 34px);
   font-weight: 600;
-  letter-spacing: 0.35em;
-  text-indent: 0.35em; /* 抵消最后一个字的字距，保持视觉居中 */
+  letter-spacing: 0.3em;
+  text-indent: 0.3em; /* 抵消最后一个字的字距，保持视觉居中 */
   overflow-wrap: anywhere;
 }
 
 .gallery-head .sub {
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: 0.5em;
   text-transform: uppercase;
   color: var(--muted);
 }
 
 .gallery-head .hint {
-  margin: 18px 0 0;
-  font-size: 13px;
+  margin: 10px 0 0;
+  font-size: 12px;
   letter-spacing: 0.12em;
   color: #9a9a9a;
 }
@@ -88,12 +90,33 @@ body.has-bg-image .bg-overlay {
 .grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: start;
   gap: clamp(12px, 1.6vw, 24px);
+  /* 桌面端让画框高度随视口高度缩放，保证四幅画框与标题同屏、无需滚动 */
+  width: min(100%, calc((100vh - 170px) * 1.85));
+  margin: 0 auto;
 }
 
 .card {
   margin: 0;
   min-width: 0;
+}
+
+/* 阶梯状排列：画框自左向右逐级上移 */
+.card:nth-child(1) {
+  margin-top: 0;
+}
+
+.card:nth-child(2) {
+  margin-top: calc(var(--stair-step) * -1);
+}
+
+.card:nth-child(3) {
+  margin-top: calc(var(--stair-step) * -2);
+}
+
+.card:nth-child(4) {
+  margin-top: calc(var(--stair-step) * -3);
 }
 
 .frame {
@@ -104,6 +127,13 @@ body.has-bg-image .bg-overlay {
   overflow: hidden;
   cursor: pointer;
   box-shadow: 0 20px 45px rgba(0, 0, 0, 0.14);
+  transition: transform 0.28s ease, box-shadow 0.28s ease;
+}
+
+/* 点击瞬间：画框轻微下压，呼应“取出画面”的动势 */
+.frame.click-pressed {
+  transform: translateY(6px) scale(0.985);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.2);
 }
 
 .frame .photo {
@@ -123,30 +153,19 @@ body.has-bg-image .bg-overlay {
 .frame .silhouette {
   position: absolute;
   inset: 0;
-  background: var(--silhouette);
+  /* 白色剪影 SVG 直接作为背景图，不依赖 mask 能力，兼容性更稳 */
+  background-color: transparent;
+  background-image: var(--mask);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   opacity: 1;
-  -webkit-mask-image: var(--mask);
-  mask-image: var(--mask);
-  -webkit-mask-size: cover;
-  mask-size: cover;
-  -webkit-mask-position: center;
-  mask-position: center;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-mode: alpha;
-  mask-mode: alpha;
   transition: opacity 0.55s ease;
 }
 
 /* 上传生成的剪影：本身就是白底透明 PNG，直接铺背景即可 */
 .frame .silhouette.png-silhouette {
-  background: none;
   background-image: var(--silhouette-img);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  -webkit-mask-image: none;
-  mask-image: none;
 }
 
 .frame:hover .photo,
@@ -470,9 +489,10 @@ body.has-bg-image .bg-overlay {
   display: grid;
   place-items: center;
   padding: clamp(16px, 4vw, 48px);
-  background: rgba(10, 10, 10, 0.9);
+  background-color: rgba(10, 10, 10, 0.9);
   cursor: zoom-out;
   animation: lightbox-in 0.22s ease;
+  transition: background-color 0.25s ease;
 }
 
 .lightbox[hidden] {
@@ -487,6 +507,8 @@ body.has-bg-image .bg-overlay {
   flex-direction: column;
   align-items: center;
   gap: 14px;
+  opacity: 1;
+  transition: opacity 0.25s ease;
 }
 
 .lightbox-figure img {
@@ -532,6 +554,31 @@ body.lightbox-open {
   overflow: hidden;
 }
 
+/* 画面飞入 / 飞回期间：灯箱底板透明、图片隐藏，由飞行克隆层完成视觉过渡 */
+.lightbox.lightbox-flying {
+  background-color: transparent;
+  animation: none;
+}
+
+.lightbox.lightbox-flying .lightbox-figure {
+  opacity: 0;
+}
+
+/* 飞行中的画面克隆层 */
+.fly-clone {
+  position: fixed;
+  z-index: 60;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  object-fit: cover;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  will-change: transform;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
+}
+
 @keyframes lightbox-in {
   from {
     opacity: 0;
@@ -546,11 +593,34 @@ body.lightbox-open {
   .grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .gallery-head {
+    margin-bottom: calc(clamp(8px, 1.2vh, 14px) + var(--stair-step));
+  }
+
+  /* 两列时每行保持“左低右高”的阶梯节奏 */
+  .card:nth-child(2),
+  .card:nth-child(4) {
+    margin-top: calc(var(--stair-step) * -1);
+  }
+
+  .card:nth-child(3) {
+    margin-top: 0;
+  }
 }
 
 @media (max-width: 620px) {
   .grid {
     grid-template-columns: 1fr;
+  }
+
+  .gallery-head {
+    margin-bottom: clamp(8px, 1.2vh, 14px);
+  }
+
+  /* 单列时取消错位，保证列表整齐 */
+  .card {
+    margin-top: 0 !important;
   }
 
   .settings-panel {
@@ -578,17 +648,5 @@ body.lightbox-open {
 
   .lightbox {
     animation: none;
-  }
-}
-
-/* 浏览器不支持明度遮罩时，直接显示原图 */
-@supports not ((mask-mode: alpha) or (-webkit-mask-mode: alpha)) {
-  .frame .silhouette {
-    display: none;
-  }
-
-  .frame .photo {
-    opacity: 1;
-    transform: none;
   }
 }

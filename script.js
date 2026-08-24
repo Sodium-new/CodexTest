@@ -77,6 +77,12 @@
   const lightboxCaption = $('#lightbox-caption');
   const lightboxClose = $('#lightbox-close');
   let lightboxTrigger = null;
+  let flightBusy = false;
+  let pendingClose = false;
+
+  const REDUCED_MOTION =
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ---------------- 状态 ---------------- */
   let sessionPromise = null;
@@ -639,7 +645,108 @@
     replaceFrameContent(index, file);
   });
 
-  /* ---------------- 完整原图查看（点击方框） ---------------- */
+  /* ---------------- 完整原图查看（点击方框 + 飞入动画） ---------------- */
+  // 依据动画参考：黑色方框为画框，红色曲线为画面运动路径
+  // 打开时画面沿左侧弧线滑出画框、飞入灯箱；关闭时从右侧弧线飞回画框。
+  function canFly() {
+    return !REDUCED_MOTION && typeof document.body.animate === 'function' && !flightBusy;
+  }
+
+  function finishFlight() {
+    flightBusy = false;
+    if (pendingClose) {
+      pendingClose = false;
+      closeLightbox();
+    }
+  }
+
+  function makeFlyClone(src, alt, rect) {
+    const clone = document.createElement('img');
+    clone.src = src;
+    clone.alt = alt || '';
+    clone.draggable = false;
+    clone.className = 'fly-clone';
+    clone.style.left = rect.left + 'px';
+    clone.style.top = rect.top + 'px';
+    clone.style.width = rect.width + 'px';
+    clone.style.height = rect.height + 'px';
+    document.body.appendChild(clone);
+    return clone;
+  }
+
+  function rectCenter(r) {
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  }
+
+  // 等待灯箱图片就绪（含已缓存图片的同步情形），以便测量准确的落点
+  function waitImageReady(img) {
+    if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+    return new Promise((resolve) => {
+      const done = () => resolve();
+      if (typeof img.decode === 'function') {
+        img.decode().then(done, done);
+      } else {
+        img.addEventListener('load', done, { once: true });
+        img.addEventListener('error', done, { once: true });
+      }
+    });
+  }
+
+  // 打开路径：先在画框内沿左侧弧线下沉滑出，再上扬飞向灯箱中央
+  function buildOpenPath(from, to, fw, fh) {
+    const fc = rectCenter(from);
+    const ic = rectCenter(to);
+    const sEnd = Math.min(to.width / from.width, to.height / from.height);
+    const p1 = { x: fc.x - fw * 0.52, y: fc.y + fh * 0.22 }; // 左移下沉（出框）
+    const p2 = {
+      x: fc.x + (ic.x - fc.x) * 0.62,
+      y: fc.y + (ic.y - fc.y) * 0.62 + fh * 0.08, // 上扬弧线
+    };
+    const s2 = 1 + (sEnd - 1) * 0.62;
+    return [
+      { transform: 'translate(0px, 0px) scale(1) rotate(0deg)', offset: 0 },
+      {
+        transform: `translate(${p1.x - fc.x}px, ${p1.y - fc.y}px) scale(0.88) rotate(-8deg)`,
+        offset: 0.36,
+      },
+      {
+        transform: `translate(${p2.x - fc.x}px, ${p2.y - fc.y}px) scale(${s2}) rotate(-3deg)`,
+        offset: 0.72,
+      },
+      {
+        transform: `translate(${ic.x - fc.x}px, ${ic.y - fc.y}px) scale(${sEnd}) rotate(0deg)`,
+        offset: 1,
+      },
+    ];
+  }
+
+  // 关闭路径：从灯箱中央向右下方弧线荡出，再从画框右侧滑回原位
+  function buildClosePath(from, to, fw, fh) {
+    const fc = rectCenter(to);
+    const ic = rectCenter(from);
+    const sEnd = Math.min(to.width / from.width, to.height / from.height);
+    const bulgeX = Math.max(18, Math.min(fw * 0.62, window.innerWidth - 24 - fc.x));
+    const p1 = { x: fc.x + bulgeX, y: fc.y + fh * 0.16 }; // 画框右侧偏上
+    const p2 = { x: fc.x + fw * 0.2, y: fc.y + fh * 0.22 }; // 画框右侧偏下
+    const s1 = 1 + (sEnd - 1) * 0.28;
+    const s2 = 1 + (sEnd - 1) * 0.55;
+    return [
+      { transform: 'translate(0px, 0px) scale(1) rotate(0deg)', offset: 0 },
+      {
+        transform: `translate(${p1.x - ic.x}px, ${p1.y - ic.y}px) scale(${s1}) rotate(3deg)`,
+        offset: 0.34,
+      },
+      {
+        transform: `translate(${p2.x - ic.x}px, ${p2.y - ic.y}px) scale(${s2}) rotate(1deg)`,
+        offset: 0.66,
+      },
+      {
+        transform: `translate(${fc.x - ic.x}px, ${fc.y - ic.y}px) scale(${sEnd}) rotate(0deg)`,
+        offset: 1,
+      },
+    ];
+  }
+
   function openLightbox(frame) {
     const photo = frame.querySelector('.photo');
     if (!photo) return;
@@ -649,16 +756,108 @@
     lightbox.hidden = false;
     document.body.classList.add('lightbox-open');
     lightboxTrigger = frame;
-    lightboxClose.focus();
+
+    if (!canFly()) {
+      lightboxClose.focus();
+      return;
+    }
+
+    flightBusy = true;
+    lightbox.classList.add('lightbox-flying');
+    frame.classList.add('click-pressed');
+
+    waitImageReady(lightboxImg)
+      .then(() => {
+        if (lightbox.hidden) {
+          frame.classList.remove('click-pressed');
+          return;
+        }
+        const from = frame.getBoundingClientRect();
+        const to = lightboxImg.getBoundingClientRect();
+        const fw = from.width;
+        const fh = from.height;
+        const clone = makeFlyClone(photo.getAttribute('src'), photo.alt, from);
+
+        const anim = clone.animate(buildOpenPath(from, to, fw, fh), {
+          duration: 820,
+          easing: 'cubic-bezier(0.25, 0.7, 0.3, 1)',
+          fill: 'forwards',
+        });
+
+        // 画面临近落位时，灯箱底板与完整原图淡入接管
+        setTimeout(() => lightbox.classList.remove('lightbox-flying'), 610);
+        anim.finished
+          .then(() => {
+            clone.remove();
+            frame.classList.remove('click-pressed');
+            lightboxClose.focus();
+          })
+          .catch(() => {
+            clone.remove();
+            lightbox.classList.remove('lightbox-flying');
+            lightboxClose.focus();
+          })
+          .finally(() => {
+            finishFlight();
+          });
+      })
+      .catch(() => {
+        frame.classList.remove('click-pressed');
+        lightbox.classList.remove('lightbox-flying');
+        finishFlight();
+        lightboxClose.focus();
+      });
   }
 
   function closeLightbox() {
     if (lightbox.hidden) return;
-    lightbox.hidden = true;
-    document.body.classList.remove('lightbox-open');
-    lightboxImg.removeAttribute('src');
-    if (lightboxTrigger) lightboxTrigger.focus();
+    if (flightBusy) {
+      pendingClose = true; // 动画进行中：排队，落位后自动关闭
+      return;
+    }
+    const frame = lightboxTrigger;
     lightboxTrigger = null;
+
+    if (!frame || !canFly()) {
+      lightbox.hidden = true;
+      document.body.classList.remove('lightbox-open');
+      lightboxImg.removeAttribute('src');
+      if (frame) frame.focus();
+      return;
+    }
+
+    flightBusy = true;
+    const from = lightboxImg.getBoundingClientRect();
+    const to = frame.getBoundingClientRect();
+    const fw = to.width;
+    const fh = to.height;
+    const clone = makeFlyClone(lightboxImg.getAttribute('src'), lightboxImg.alt, from);
+    lightbox.classList.add('lightbox-flying');
+
+    const anim = clone.animate(buildClosePath(from, to, fw, fh), {
+      duration: 760,
+      easing: 'cubic-bezier(0.25, 0.7, 0.3, 1)',
+      fill: 'forwards',
+    });
+
+    anim.finished
+      .then(() => {
+        clone.remove();
+        lightbox.hidden = true;
+        document.body.classList.remove('lightbox-open');
+        lightboxImg.removeAttribute('src');
+        frame.focus();
+      })
+      .catch(() => {
+        clone.remove();
+        lightbox.hidden = true;
+        document.body.classList.remove('lightbox-open');
+        lightboxImg.removeAttribute('src');
+        frame.focus();
+      })
+      .finally(() => {
+        finishFlight();
+      });
   }
 
   frameEls.forEach((frame) => {
