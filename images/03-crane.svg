@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1770">
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1770" viewBox="0 0 900 1770">
   <defs>
     <radialGradient id="moonGlow3" cx="50%" cy="50%" r="50%">
       <stop offset="0%" stop-color="#fff1c4" stop-opacity="0.32"/>
